@@ -12,7 +12,7 @@ et ça ne casse pas dans le temps.
 
 | Outil | Rôle |
 |-------|------|
-| **tmux** | Sessions persistantes en SSH (la connexion saute, le travail continue) + multiplexage |
+| **tmux** | Sessions persistantes en SSH (la connexion saute, le travail continue) + multiplexage — config 100 % native, sans plugins |
 | **Neovim / LazyVim** | Éditeur dans le terminal, config versionnée, plugins figés via `lazy-lock.json` |
 | **Claude Code** | Assistant de code dans le terminal (installeur natif, auto-update) |
 
@@ -22,6 +22,7 @@ et ça ne casse pas dans le temps.
 ~/.tmux.conf                    # config tmux (true-color, TPM, persistance)
 ~/.config/nvim/                 # config LazyVim (+ lazy-lock.json committé)
 ~/.config/dotfiles/install.sh   # provisioner idempotent
+~/.config/dotfiles/uninstall.sh # désinstalle proprement (flags --purge-data / --purge-packages)
 ~/bootstrap.sh                  # entrée one-shot pour serveur neuf
 ```
 
@@ -110,6 +111,18 @@ Mettre à jour un serveur déjà déployé : `config pull` (puis relancer
 > chaque `:Lazy update` validé.
 
 ---
+
+## Désinstallation
+
+```bash
+bash ~/.config/dotfiles/uninstall.sh                 # retire les outils, garde tes données
+bash ~/.config/dotfiles/uninstall.sh --purge-data    # + config/credentials Claude & données nvim
+bash ~/.config/dotfiles/uninstall.sh --all           # + paquets apt (partagés, prudence)
+```
+
+Par défaut le script ne touche ni à tes paquets système partagés, ni à ton
+bare repo de dotfiles, ni à tes configs trackées. Il l'indique en fin
+d'exécution avec les commandes manuelles si tu veux aller plus loin.
 
 ## Tester sur un conteneur jetable
 
