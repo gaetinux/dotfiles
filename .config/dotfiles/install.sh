@@ -47,6 +47,25 @@ install_system_packages() {
   fi
 }
 
+# Le binaire `claude` (installeur natif) atterrit dans ~/.local/bin, qui n'est
+# pas toujours dans le PATH sur un shell non-login. On l'ajoute à ~/.bashrc.
+ensure_local_bin_path() {
+  local rc="$HOME/.bashrc"
+  mkdir -p "$HOME/.local/bin"
+  # idempotent : on n'ajoute la ligne que si ~/.local/bin n'y est pas déjà
+  if ! grep -qsF '.local/bin' "$rc"; then
+    printf '\n# Ajouté par install.sh\nexport PATH="$HOME/.local/bin:$PATH"\n' >> "$rc"
+    log "~/.local/bin ajouté au PATH dans ~/.bashrc."
+  else
+    log "~/.local/bin déjà dans le PATH (~/.bashrc)."
+  fi
+  # rend aussi dispo dans le shell courant (pour le 'command -v claude' qui suit)
+  case ":$PATH:" in
+    *":$HOME/.local/bin:"*) ;;
+    *) export PATH="$HOME/.local/bin:$PATH" ;;
+  esac
+}
+
 # Ubuntu fournit le binaire `fdfind`, mais Telescope cherche `fd`.
 link_fd() {
   if ! command -v fd >/dev/null 2>&1 && command -v fdfind >/dev/null 2>&1; then
@@ -120,6 +139,7 @@ install_claude_code() {
 # ─────────────────────────────────────────────────────────────────
 main() {
   install_system_packages
+  ensure_local_bin_path
   link_fd
   install_neovim
   install_tpm
