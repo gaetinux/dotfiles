@@ -33,7 +33,7 @@ install_system_packages() {
   log "Paquets système (apt)…"
   # ripgrep + fd = requis par Telescope (LazyVim) ; build-essential pour les
   # plugins qui compilent (treesitter, etc.)
-  local pkgs=(tmux git curl unzip build-essential ripgrep fd-find)
+  local pkgs=(tmux git curl unzip build-essential ripgrep fd-find jq)
   local missing=()
   for p in "${pkgs[@]}"; do
     dpkg -s "$p" >/dev/null 2>&1 || missing+=("$p")
@@ -93,13 +93,22 @@ install_neovim() {
   local url="https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/${asset}.tar.gz"
   curl -fsSL "$url" -o /tmp/nvim.tar.gz
 
-  # Vérification d'intégrité du tarball (refuse d'installer si ça ne matche pas).
-  # Neovim publie un asset .sha256sum à côté de chaque archive.
+  # Vérification d'intégrité (refuse d'installer si ça ne matche pas).
+  # GitHub n'expose PAS de fichier .sha256sum, mais l'API renvoie le digest
+  # de chaque asset. On le récupère là, sauf si NVIM_SHA256 est fourni à la main.
   log "Vérification du checksum…"
   local expected actual
-  expected="$(curl -fsSL "${url}.sha256sum" 2>/dev/null | awk '{print $1}')"
-  if [ -z "$expected" ]; then
-    warn "Checksum introuvable pour cet asset — vérifie le nom de l'asset/URL."
+  if [ -n "${NVIM_SHA256:-}" ]; then
+    expected="$NVIM_SHA256"
+  else
+    local api="https://api.github.com/repos/neovim/neovim/releases/tags/${NVIM_VERSION}"
+    expected="$(curl -fsSL "$api" 2>/dev/null \
+      | jq -r --arg a "${asset}.tar.gz" '.assets[] | select(.name==$a) | .digest' \
+      | sed 's/^sha256://')"
+  fi
+  if [ -z "$expected" ] || [ "$expected" = "null" ]; then
+    warn "Checksum introuvable via l'API GitHub (rate limit ? nom d'asset ?)."
+    warn "Tu peux le passer à la main : NVIM_SHA256=<hash> bash install.sh"
     warn "Abandon par sécurité (pas d'install non vérifiée)."
     rm -f /tmp/nvim.tar.gz
     exit 1
@@ -123,25 +132,7 @@ install_neovim() {
 }
 
 # ─────────────────────────────────────────────────────────────────
-#  3. TPM (tmux plugin manager) + install des plugins sans ouvrir tmux
-# ─────────────────────────────────────────────────────────────────
-install_tpm() {
-  local tpm_dir="$HOME/.tmux/plugins/tpm"
-  if [ -d "$tpm_dir" ]; then
-    log "TPM déjà présent."
-  else
-    log "Clone de TPM…"
-    git clone --depth 1 https://github.com/tmux-plugins/tpm "$tpm_dir"
-  fi
-  # installe les plugins listés dans ~/.tmux.conf
-  if [ -f "$HOME/.tmux.conf" ]; then
-    "$tpm_dir/bin/install_plugins" >/dev/null 2>&1 \
-      || warn "install_plugins a renvoyé une erreur (souvent normal au tout 1er run)."
-  fi
-}
-
-# ─────────────────────────────────────────────────────────────────
-#  4. Claude Code — LA partie qui bouge dans le temps, isolée exprès.
+#  3. Claude Code — LA partie qui bouge dans le temps, isolée exprès.
 #     Installeur natif officiel : pas de Node, auto-update en arrière-plan.
 #     -> Le jour où ça change, c'est ici et nulle part ailleurs.
 # ─────────────────────────────────────────────────────────────────
@@ -164,7 +155,6 @@ main() {
   ensure_local_bin_path
   link_fd
   install_neovim
-  install_tpm
   install_claude_code
 
   log "Terminé ✓"
