@@ -31,10 +31,26 @@ et ça ne casse pas dans le temps.
 
 Prérequis : un Ubuntu/Debian frais avec `curl` et `git`.
 
+Version simple (suit `main`) :
+
 ```bash
 REPO=https://github.com/gaetinux/dotfiles.git \
   bash <(curl -fsSL https://raw.githubusercontent.com/gaetinux/dotfiles/main/bootstrap.sh)
 ```
+
+Version durcie (recommandée) — on récupère `bootstrap.sh` figé sur un commit
+précis, et on déploie ce même commit (un SHA git est un hash de contenu :
+l'état déployé est immuable et vérifié) :
+
+```bash
+COMMIT=<sha-du-commit>
+REPO=https://github.com/gaetinux/dotfiles.git \
+REF=$COMMIT \
+  bash <(curl -fsSL "https://raw.githubusercontent.com/gaetinux/dotfiles/$COMMIT/bootstrap.sh")
+```
+
+Si tu signes tes commits/tags en GPG, ajoute `VERIFY_GPG=1` pour exiger une
+signature valide avant tout déploiement.
 
 Le script clone le repo, pose les dotfiles dans `$HOME` (en sauvegardant ce
 qui gênerait dans `~/.dotfiles-backup/`), puis lance `install.sh`.
@@ -108,6 +124,22 @@ REPO=https://github.com/gaetinux/dotfiles.git \
 
 ---
 
+## Sécurité
+
+- **Aucun secret dans ce repo.** Le bare repo track des fichiers de `$HOME` —
+  là où vivent les secrets. On ajoute les fichiers **un par un** (jamais de
+  `config add .`), et `status.showUntrackedFiles no` évite les ajouts
+  accidentels. À ne jamais committer : `~/.ssh/`, `~/.claude/`, `~/.aws/`,
+  `~/.netrc`, `~/.bash_history`, tout token/clé.
+- **Téléchargement Neovim vérifié** par checksum SHA256 (`install.sh` refuse
+  d'installer si ça ne matche pas).
+- **Déploiement pinnable** sur un commit/tag précis (`REF=`) + signature GPG
+  optionnelle (`VERIFY_GPG=1`).
+- `curl | bash` : seulement pour l'installeur natif first-party de Claude Code
+  et pour ce `bootstrap.sh` (lis-le avant de le lancer ; préfère la version
+  pinnée).
+- Scripts en `set -euo pipefail`, vérifiables avec `shellcheck`.
+
 ## Notes
 
 - **Nerd Font** : à installer **côté client** (ton terminal local), pas sur le
@@ -117,4 +149,3 @@ REPO=https://github.com/gaetinux/dotfiles.git \
 - **Claude Code** : installé via l'installeur natif officiel (auto-update). La
   fonction `install_claude_code()` de `install.sh` est le seul point à toucher
   si la méthode d'install évolue.
-- Scripts en `set -euo pipefail` + vérifiables avec `shellcheck`.
