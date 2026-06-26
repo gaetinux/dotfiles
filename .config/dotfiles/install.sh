@@ -92,6 +92,28 @@ install_neovim() {
   esac
   local url="https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/${asset}.tar.gz"
   curl -fsSL "$url" -o /tmp/nvim.tar.gz
+
+  # Vérification d'intégrité du tarball (refuse d'installer si ça ne matche pas).
+  # Neovim publie un asset .sha256sum à côté de chaque archive.
+  log "Vérification du checksum…"
+  local expected actual
+  expected="$(curl -fsSL "${url}.sha256sum" 2>/dev/null | awk '{print $1}')"
+  if [ -z "$expected" ]; then
+    warn "Checksum introuvable pour cet asset — vérifie le nom de l'asset/URL."
+    warn "Abandon par sécurité (pas d'install non vérifiée)."
+    rm -f /tmp/nvim.tar.gz
+    exit 1
+  fi
+  actual="$(sha256sum /tmp/nvim.tar.gz | awk '{print $1}')"
+  if [ "$expected" != "$actual" ]; then
+    warn "Checksum Neovim INVALIDE — fichier corrompu ou altéré. Abandon."
+    warn "  attendu : $expected"
+    warn "  obtenu  : $actual"
+    rm -f /tmp/nvim.tar.gz
+    exit 1
+  fi
+  log "Checksum OK ✓"
+
   $SUDO rm -rf /opt/nvim
   $SUDO mkdir -p /opt/nvim
   $SUDO tar -xzf /tmp/nvim.tar.gz -C /opt/nvim --strip-components=1
